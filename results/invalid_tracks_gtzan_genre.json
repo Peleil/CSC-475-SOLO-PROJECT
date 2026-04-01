@@ -1,0 +1,17 @@
+{
+  "dataset": "gtzan_genre",
+  "version": "default",
+  "invalid_track_ids": [
+    "jazz.00054"
+  ],
+  "missing": {
+    "tracks": {}
+  },
+  "invalid": {
+    "tracks": {
+      "jazz.00054": [
+        "C:\\Users\\usang\\uvic\\26_Spring\\CSC 475\\CSC SOLO PROJECT\\dataset\\mirdata_gtzan_genre\\gtzan_genre/genres/jazz/jazz.00054.wav"
+      ]
+    }
+  }
+}

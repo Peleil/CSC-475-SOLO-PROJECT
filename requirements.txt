@@ -4,3 +4,5 @@ librosa
 pandas
 tqdm
 madmom
+mirdata>=1.0.0
+huggingface_hub>=0.20.0

@@ -1,0 +1,31 @@
+# OS junk
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Python cache/build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Local env/cache
+.env
+.venv/
+.pytest_cache/
+.mypy_cache/
+
+# Downloaded/generated datasets (ignore all under dataset)
+dataset/
+
+# Large audio/data files anywhere
+*.mp3
+*.wav
+*.flac
+*.ogg
+*.m4a
+*.aif
+*.aiff
+*.zip
+*.tar
+*.tar.gz

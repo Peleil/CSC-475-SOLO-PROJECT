@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import argparse
 import csv
-import math
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -59,6 +59,12 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("results/quick_check.csv"),
         help="출력 CSV 경로",
+    )
+    parser.add_argument(
+        "--exclude-invalid-json",
+        type=Path,
+        default=Path("results/invalid_tracks_gtzan_genre.json"),
+        help="검증에서 제외할 track id 목록 JSON 경로 (없으면 무시)",
     )
     return parser.parse_args()
 
@@ -120,8 +126,40 @@ def pct_error(pred: Optional[float], gt: Optional[float]) -> Optional[float]:
     return abs(pred - gt) / gt * 100.0
 
 
+def load_excluded_track_ids(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        ids = payload.get("invalid_track_ids", [])
+        if isinstance(ids, list):
+            return {str(x) for x in ids}
+    except Exception:
+        return set()
+    return set()
+
+
+def candidate_track_ids_from_bpm_file(bpm_file: Path) -> set[str]:
+    """
+    서로 다른 네이밍 규칙을 모두 대응하기 위한 후보 집합.
+    예:
+    - GiantSteps: 1030011.LOFI.bpm -> {1030011.LOFI, 1030011}
+    - GTZAN tempo_beat: gtzan_jazz_00054.bpm -> {gtzan_jazz_00054, jazz.00054}
+    """
+    stem = bpm_file.stem
+    candidates = {stem, stem.split(".")[0]}
+    if stem.startswith("gtzan_"):
+        parts = stem.split("_")
+        if len(parts) >= 3:
+            genre = parts[1]
+            idx = parts[2]
+            candidates.add(f"{genre}.{idx}")
+    return candidates
+
+
 def main() -> None:
     args = parse_args()
+    excluded_ids = load_excluded_track_ids(args.exclude_invalid_json)
     annotation_dir = args.annotation_dir
     if not annotation_dir.exists():
         raise FileNotFoundError(f"annotation 폴더가 없습니다: {annotation_dir}")
@@ -135,6 +173,26 @@ def main() -> None:
 
     rows: list[dict[str, object]] = []
     for bpm_file in sample_files:
+        candidate_ids = candidate_track_ids_from_bpm_file(bpm_file)
+        if excluded_ids.intersection(candidate_ids):
+            skip_id = sorted(excluded_ids.intersection(candidate_ids))[0]
+            rows.append(
+                {
+                    "track_id": bpm_file.stem.split(".")[0],
+                    "annotation_path": str(bpm_file),
+                    "audio_path": "",
+                    "gt_bpm": "",
+                    "dsp_tempo_bpm": "",
+                    "madmom_tempo_bpm": "",
+                    "num_beats_madmom": "",
+                    "dsp_error_pct": "",
+                    "madmom_error_pct": "",
+                    "status": "skipped_invalid_track",
+                    "note": f"invalid track 목록에 포함되어 스킵: {skip_id}",
+                }
+            )
+            continue
+
         track_id = bpm_file.stem.split(".")[0]
         gt_bpm = load_gt_bpm(bpm_file)
         audio_path = find_audio_for_track(track_id, args.audio_root)

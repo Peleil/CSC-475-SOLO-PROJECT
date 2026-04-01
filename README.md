@@ -8,7 +8,19 @@ Beat Tracking and Tempo Estimation Project
 pip install -r requirements.txt
 ```
 
-2) GiantSteps만 먼저 쓸 때 (GTZAN 오디오는 나중에 받아도 됨)
+2) GTZAN-Genre (mirdata) — `gtzan_genre` 데이터셋 받기
+
+- **mini** (약 100곡 + tempo/beat 어노테이션, 빠른 점검):  
+  `python scripts/download_gtzan_genre_mirdata.py --version mini`
+- **전체** — mirdata 기본은 UVic `opihi.cs.uvic.ca` 에서 `genres.tar.gz` 를 받는데, **방화벽/VPN/서버 문제로 타임아웃(WinError 10060 등)** 이 나면 아래 **Hugging Face 미러**를 쓰면 된다 (`marsyas/gtzan` 저장소의 `data/genres.tar.gz`):  
+  `python scripts/download_gtzan_genre_mirdata.py --version default --source huggingface`
+- 전체를 UVic 경로로 받아 볼 때(네트워크가 될 때만):  
+  `python scripts/download_gtzan_genre_mirdata.py --version default --source mirdata`
+- 기본 저장 위치: `dataset/mirdata_gtzan_genre` (`--data-home`로 변경 가능)
+- 다시 받을 때: `--force`
+- 검증에서 일부 track checksum 불일치가 나와도 기본은 **경고 후 계속 진행**하며, 목록을 `results/invalid_tracks_gtzan_genre.json`에 저장한다. (`--strict-validate`를 주면 실패 처리)
+
+3) GiantSteps만 먼저 쓸 때 (GTZAN을 mirdata로 받는 것과 별개로 진행 가능)
 
 - `dataset/giantsteps-tempo-dataset-master/README` 참고: 약 664개 mp3는 **별도 다운로드** (`audio_dl.sh` 또는 README의 Beatport URL 패턴).
 - 받은 mp3를 아래처럼 두면 스크립트가 `1030011.LOFI.bpm` ↔ `1030011.LOFI.mp3` 로 매칭한다.
@@ -24,13 +36,16 @@ python scripts/run_giantsteps_quick_check.py --sample-size 5
 - 결과: `results/giantsteps_quick_check.csv` (`dsp_acc1` / `madmom_acc1` 은 상대 오차 4% 이내 여부)
 - 오디오가 아직 없으면 `status=missing_audio` 로 남는다 → 정상, 다운로드 후 재실행.
 
-3) (선택) 샘플 quick check — GiantSteps annotation만 있을 때
+4) (선택) 샘플 quick check — GiantSteps annotation만 있을 때
 
 ```bash
 python scripts/run_quick_check.py --sample-size 3
 ```
 
-4) 결과 확인
+- GTZAN에서 checksum mismatch track(예: `jazz.00054`)을 자동 제외하려면:  
+  `python scripts/run_quick_check.py --sample-size 20 --exclude-invalid-json results/invalid_tracks_gtzan_genre.json`
+
+5) 결과 확인
 - `results/quick_check.csv` 또는 `results/giantsteps_quick_check.csv`
 - `status`가 `missing_audio`이면 오디오 경로를 확인하거나 `--audio-root` 지정
 
