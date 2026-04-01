@@ -1,173 +1,155 @@
 # MIR 프로젝트 계획: Beat Tracking and Tempo Estimation
 
-> **2주 크런치 모드:** 아래 계획은 “완성도보다 제출·발표에 필요한 최소선”을 우선한다. 장문 Blueprint는 유지하되, **실행 순서는 §4(2주 일정)**와 **§3 압축 체크리스트**를 따른다.
+> **샘플 보고서 정렬 모드:** CSC475 샘플 진행 보고와 동일하게 **GTZAN Tempo-Beat**와 **GiantSteps**를 쓰고, 알고리즘은 **autocorrelation(DSP) · madmom(DBN) · 1D-StateSpace** 세 가지를 비교하는 것을 목표로 한다.  
+> **2주 크런치**가 필요하면 §4·§5를 우선 따르되, **방법 3개 + 데이터 2종**은 부담이 크므로 §1의 **우선순위**로 현실적으로 줄인다.
 
 ## 1) 프로젝트 요약
 
-이 프로젝트는 `dataset/`의 데이터, `papers/`의 선행연구, 재현 가능한 코드 실험을 바탕으로 **beat tracking**과 **tempo estimation**을 위한 Music Information Retrieval (MIR) 파이프라인을 구축하고 평가하는 것을 목표로 한다.  
+이 프로젝트는 `papers/`의 선행연구와 재현 가능한 코드 실험을 바탕으로 **beat tracking**과 **tempo estimation**을 위한 Music Information Retrieval (MIR) 파이프라인을 구축·평가한다.  
 최종 결과물은 실행 가능한 코드/평가 산출물과 함께, **ISMIR 스타일 LaTeX 논문**으로 옮기기 쉬운 보고서 초안이다.
 
-### 2주 기준으로 줄인 핵심 목표 (Must-have)
-- **Global tempo (BPM)** 과 **beat 시점**을 같은 파이프라인에서 처리할 수 있게 한다.
-- 방법은 **딱 2개만** 비교한다: (1) 직접 구현하는 가벼운 DSP baseline, (2) **toolkit baseline** (`madmom` 등). `1D-StateSpace`/신경망 직접 재현은 우선 버린다.
-- 평가는 **tempo: 간단 tolerance 또는 MAE**, **beat: F-measure(고정 tolerance)** 정도로 고정해 반복 실험 시간을 줄인다.
-- 보고서에는 **표 1장 + 실패 사례 2~3개**만 있어도 통과선을 노린다.
+### 샘플과 맞추는 핵심 목표 (Must-have)
 
-### 명시적으로 나중으로 미루는 것 (2주에서는 생략 권장)
-- 장르별/tempo-bin별 전체 분해, Cemgil 등 부가 metric, cross-validation, `marsyas` 딥 통합, extensive hyperparameter sweep.
+- **데이터셋 (샘플과 동일 계획):**
+  - **GTZAN Tempo-Beat:** 다장르, beat + global tempo annotation.
+  - **GiantSteps:** EDM 중심, tempo(및 사용 가능한 beat)로 샘플 보고서처럼 **템포 구간 층화 split** 등 보완 가능.
+- **비교 방법 3가지 (고정):**
+  1. **M-DSP / autocorrelation baseline** — Percival–Tzanetakis류 tempo + 필요 시 간단 beat 파이프라인.
+  2. **M-madmom** — `RNNBeatProcessor` + `DBNBeatTrackingProcessor` 등 **madmom** 기반 tracker.
+  3. **M-1DSS** — `mjhydri/1D-StateSpace` 저장소의 **1D state-space** beat/tempo 추적.
+- **평가:** 샘플에 가깝게 가려면 `mir_eval` 기준 **ACC1, ACC2, MAE**(tempo), **F-measure**(beat, 예: 70 ms tolerance)를 우선. 시간이 없으면 **ACC1/ACC2 + F-measure + MAE**만 고정.
+- **보고서:** 정량 표 + 실패 사례 몇 곡 + 샘플처럼 **통일된 전처리·동일 Evaluator 인터페이스**를 강조하면 설득력이 좋다.
 
-### 권장 baseline 방향 (README 기반)
-- State-space / probabilistic tracking 아이디어 (`1D-StateSpace`)
-- 기존 MIR 라이브러리 baseline (예: `madmom`)
-- 추가 프레임워크 참고 (`marsyas` 관련 repo 링크)
+### `dataset/`을 “깃헙 통째 복사”했을 때 권장 사항
 
-### 프로젝트 프레이밍에 중요한 참고문헌
-- Gouyon et al. (2006): tempo induction 알고리즘 비교 분석
-- Percival and Tzanetakis (2014): autocorrelation/cross-correlation 기반 streamlined tempo estimation
-- Boeck and Schedl (2011): context-aware neural-network beat tracking
+통째 복제도 **가능**하지만, 아래를 하면 나중에 재현·제출·용량 관리가 쉽다.
+
+| 방식 | 장점 | 비고 |
+|------|------|------|
+| **지금처럼 로컬에 클론/복사** | 오프라인 작업, 설정 단순 | `README`에 **각 서브폴더가 어떤 데이터셋인지**, 오디오 경로 규칙을 적어 둘 것. 대용량은 **Git에 안 올리고** `.gitignore` + 별도 백업. |
+| **`git submodule`** (데이터용 repo만) | 버전 고정, 팀/교수에게 “어떤 스냅샷인지” 설명 용이 | 처음 한 번만 학습 비용. |
+| **공식 스크립트로 오디오만 받기** | repo 메타데이터 vs 실제 wav/mp3 분리 | GiantSteps 등은 annotation만 있고 **오디오는 스크립트로 다운로드**인 경우가 많음 → `audio_dl.sh` 등 확인. |
+| **심볼릭 링크** | 디스크 중복 감소 | Windows에서 권한/백업 정책 확인. |
+
+**추천 정리:**  
+1) `dataset/` 아래를 **`dataset/gtzan_tempo_beat/`**, **`dataset/giantsteps/`**처럼 **역할별 폴더명**으로 정리(이미 giantsteps가 있으면 그대로 두되 README에 한 줄 매핑).  
+2) **오디오가 있는지** 첫날 스캔: 없으면 `missing_audio`처럼 평가에서 제외할지, 다운로드할지 결정.  
+3) 샘플 보고서 수준으로 가려면 **동일 sample rate(예: 44.1 kHz), mono, 동일 정규화**를 세 방법 모두에 적용.
+
+### 명시적으로 나중으로 미룰 수 있는 것 (시간 부족 시)
+
+- Cemgil, Information Gain, Wilcoxon 등 **부가 metric·통계 검정** (샘플 수준은 목표로 두고, 마감 전에는 표·F-measure 중심으로 축소 가능).
+- `marsyas` 딥 통합, extensive hyperparameter sweep.
+
+### 권장 코드·참고
+
+- **1D-StateSpace:** https://github.com/mjhydri/1D-StateSpace  
+- **madmom** (PyPI)  
+- **선행 논문:** Gouyon et al. (2006), Percival & Tzanetakis (2014), Böck & Schedl (2011)
 
 ---
 
 ## 2) Blueprint (엔드투엔드 프로젝트 설계)
 
-## A. 연구 질문과 범위
-- **RQ1:** 현재 데이터에서 toolkit vs 간단 DSP 중 tempo estimation이 더 나은 쪽은?
-- **RQ2:** 동일 조건에서 beat tracking F-measure는 어떻게 다른가?
-- **RQ3 (옵션):** 시간 남으면 장르 또는 BPM 구간 중 한 축만 짧게 코멘트.
+### A. 연구 질문과 범위 (샘플에 맞춘 예시)
+
+- **RQ1:** classical(autocorrelation) vs probabilistic(madmom) vs state-space(1D-SS)의 **tempo·beat 성능** 차이는?  
+- **RQ2:** 장르(GTZAN) vs EDM(GiantSteps)에서 **실패 패턴**이 다른가?  
+- **RQ3 (옵션):** 정확도–실행 시간 트레이드오프.
 
 초기에 범위를 명확히 정의한다.
-- Task 1: **Global tempo estimation** (단일 BPM 출력이면 충분)
-- Task 2: **Beat tracking** (beat timestamp 시퀀스)
-- **방법 2개 고정:** M-DSP(또는 노트북 수준 pipeline) + M-toolkit(`madmom`).
 
-## B. 데이터/어노테이션 워크플로우 (2주판: 최소 절차)
-1. `dataset/`에서 **쓸 파일 목록 + annotation 경로**만 스프레드시트/텍스트로 고정한다.
-2. beat / BPM 라벨 중 **하나라도 없으면** 해당 트랙은 첫날에 제외하거나, BPM만 beat에서 유도하는지 교수/명세 확인(반나절 안에 결정).
-3. 전처리: **mono + 한 가지 sample rate만** 쓴다. loudness 정규화는 전곡 통일 또는 전부 끄기 중 하나.
-4. split: **train 0도 가능**. 가능하면 **80/20 한 번**만; 어노테이션이 적으면 **전체 test**로만 수치 내고 limitation에 명시.
+- Task 1: **Global tempo estimation**  
+- Task 2: **Beat tracking**  
+- **방법 3개:** M-DSP, M-madmom, M-1DSS — 입력은 가능하면 **`predict(audio_path)` 한 가지 인터페이스**로 통일(샘플 보고서의 Evaluator 패턴).
 
-## C. 방법론 로드맵 (2주판)
-- **M-DSP:** Percival–Tzanetakis류 **autocorrelation tempo** + (같은 onset envelope에서) **간단 beat 정렬**(DP 없이 주기 피킹 수준이면 첫 주에 막히면 `madmom` beat만 비교하고 tempo만 DSP로도 됨).
-- **M-toolkit:** `madmom`으로 **tempo + beat 한 번에** 강한 baseline 확보.
+### B. 데이터/어노테이션 워크플로우
 
-각 방법마다 아래를 문서화한다.
-- 입력 feature
-- 모델/알고리즘 가정
-- hyperparameter
-- 실행 시간 복잡도 및 dependency
+1. **우선순위 (현재):** GiantSteps만 진행 가능 — `annotations_v2/tempo/*.bpm` + 오디오(mp3)는 README/`audio_dl.sh`로 별도 확보 후 `dataset/giantsteps-tempo-dataset-master/audio/` 등에 배치. 스크립트: `scripts/run_giantsteps_quick_check.py`.  
+2. **GTZAN Tempo-Beat:** 오디오는 나중에 받아도 됨. 준비되면 **오디오 경로 + beat 파일 + tempo(BPM)** 매칭표 작성.  
+3. GiantSteps: **템포 구간별 층화 split**은 샘플처럼 하면 좋고, 시간이 없으면 **단순 70/15/15 한 번**만. (beat 정답은 이 데이터셋에 없으므로 **tempo 평가**를 먼저 완성.)  
+3. 전처리: **44.1 kHz, mono, 정규화 정책 고정** (샘플 보고서와 동일하게 맞추기 쉬움).  
+4. integrity: 여유 있으면 **MD5 또는 파일 크기**로 손상 파일 제거; 최소한 **로드 실패 트랙 로그**.
 
-## D. 평가 프레임워크
-Task별로 metric을 분리해 사용한다.
+### C. 방법론 로드맵
 
-Tempo estimation:
-- Accuracy1 / Accuracy2 계열 metric (정확 일치와 octave 관련 허용 오차 반영)
-- 필요 시 절대 BPM 오차 (MAE)
+- **M-DSP:** autocorrelation / onset 기반 tempo; beat는 librosa 또는 별도 간단 디코더.  
+- **M-madmom:** RNN activation + DBN beat tracking; 출력을 **초 단위**로 통일해 `mir_eval`에 넣기.  
+- **M-1DSS:** `1D-StateSpace` repo의 **README·환경 요구사항**(Python 버전, 의존성) 확인 후, 동일 오디오 입력으로 beat(및 제공 시 tempo) 추출.
 
-Beat tracking:
-- 허용 오차 window 기반 F-measure
-- 선택적으로 continuity 기반 metric, Cemgil 계열 점수
+각 방법마다 문서화: 입력 feature, 가정, hyperparameter, 실패 시 empty output 처리(저 BPM 등).
 
-분석 관점 (2주판):
-- 전체 평균 표 1개 + 선택적 막대그래프 1개
-- failure case **2~3곡**만 스크린샷/짧은 설명
+### D. 평가 프레임워크
 
-## E. 실험 실행 계획
-1. 단일 실험 실행 스크립트/노트북 구성
-2. 각 실행 로그 기록
-   - dataset split
-   - 방법 및 hyperparameter
-   - metric과 timestamp
-3. 출력 저장
-   - predicted beat 파일
-   - predicted BPM 파일
-   - 요약 CSV/JSON
-4. 시간이 없으면 clean 재현은 **최종 제출 직전 하루**만 수행
+- Tempo: **ACC1, ACC2**, **MAE**.  
+- Beat: **F-measure** (tolerance 고정, 예: 70 ms).  
+- 시간 남으면: Cemgil, Information Gain 등 샘플 보고서와 동일선상으로 확장.
 
-## F. 보고서 Blueprint (ISMIR paper 전환 대비)
-지금부터 LaTeX로 바로 옮길 수 있는 구조로 작성한다.
-- **Abstract:** 문제 정의, 방법, 핵심 결과
-- **Introduction:** MIR 맥락과 동기
-- **Related Work:** 핵심 논문 3편 + 사용 baseline 도구 요약
-- **Methodology:** 데이터, 전처리, 방법, metric
-- **Experiments:** 실험 설정, split, 구현 세부
-- **Results:** 정량 결과표 + 정성 오류 분석
-- **Discussion:** 한계, 통찰, 향후 개선 방향
-- **Conclusion:** 최종 결론과 최우수 방법
+분석: 전체 표 + (가능하면) 장르별·데이터셋별 소표; failure case 2~5곡.
+
+### E. 실험 실행 계획
+
+1. 단일 **Evaluator** 루프: 트랙마다 세 방법 `predict` → JSON/CSV 저장.  
+2. 로그: split, 버전, seed, wall-clock time.  
+3. clean 재현: 제출 전 **한 번** 전체 재실행 권장.
+
+### F. 보고서 Blueprint (ISMIR)
+
+Abstract, Introduction, Related Work, Methodology, Experiments, Results, Discussion, Conclusion.
 
 ---
 
-## 3) 2주 크런치 체크리스트 (짧게)
+## 3) 실행 체크리스트 (압축)
 
-### Day 0~1 (반나절~1일): 환경 + 데이터
-- [ ] `requirements.txt` 최소 패키지 + `madmom` 설치 확인
-- [ ] `dataset/` 목록 + annotation 매칭 + **평가에 쓸 트랙 N 확정**
-- [ ] 오디오 로드 함수 1개 + 리샘플링/mono 1줄 정책 고정
+### Phase A: 데이터 + 환경
 
-### Day 2~4: 방법 두 개 돌아가게 만들기
-- [ ] M-DSP: tempo (필수) + 가능하면 beat (선택, 막히면 beat는 `madmom`만 비교)
-- [ ] M-toolkit: `madmom`으로 tempo+beat 추론 스크립트 완성
-- [ ] 출력 형식 통일: `track_id, bpm / beat_times[]` 저장
+- [ ] `dataset/` 아래 **GTZAN / GiantSteps** 위치와 오디오 유무 스캔  
+- [ ] `requirements.txt` + (필요 시) **1D-StateSpace / madmom** 각각 요구 버전 메모  
+- [ ] 전처리 한 함수로 통일 후 **샘플 5곡**으로 세 방법 모두 통과
 
-### Day 5~7: 평가 + 숫자 확보
-- [ ] tempo metric 1종 + beat F-measure 1종만 고정
-- [ ] 전 트랙 batch 실행 → **CSV 하나**로 합치기
-- [ ] 표: 평균±표준편차 또는 단순 평균
+### Phase B: 방법 세 개
 
-### Day 8~10: 글 + 그림 + 제출
-- [ ] Related work 1~2쪽 + 방법 1쪽 + 실험 1쪽 + 결과 1쪽 초안
-- [ ] failure case 2~3곡 figure
-- [ ] limitation(데이터 양, split, metric 단순화) 한 단락
-- [ ] `README.md`에 “한 줄 실행” 명령만
+- [ ] M-DSP 스크립트 또는 모듈  
+- [ ] M-madmom 배치  
+- [ ] M-1DSS 클론 경로 고정 + 실행 커맨드 문서화  
+
+### Phase C: 평가
+
+- [ ] `mir_eval`로 ACC1/ACC2/MAE/F-measure  
+- [ ] 전체 test split batch → **하나의 요약 CSV**  
+- [ ] 표 + 그림 + limitation
 
 ---
 
-### 참고: 여유 있을 때만 하는 확장 (구 4주 스타일)
-- 폴더 구조 정리, 방법 3개째, 부가 metric, 장르별 분해, extensive 테스트 등은 시간 날 때 §2 전체 Blueprint를 참고해 확장한다.
+## 4) 2주 크런치 일정 (세 방법·두 데이터셋 전제)
 
----
+시간이 촉박할 때 **구현 순서**만 지킨다: **① madmom (가장 표준)** → **② DSP** → **③ 1D-StateSpace (환경 이슈 가능)**.
 
-## 4) 2주 일정 (크런치 기준)
-
-가정: **매일 MIR에 쏟을 수 있는 시간이 대략 3~6시간** 수준. 더 짧으면 “짝수일만” 합쳐서 동일 블록으로 묶으면 된다.
-
-### 제1주 — 파이프라인이 돈다 (숫자 전까지)
 | 일 | 목표 |
 |---|---|
-| **1일차** | 환경, 데이터 목록, 3곡으로 `madmom` 추론·시각화 검증 |
-| **2일차** | 전처리 고정 + DSP tempo 프로토타입 (노트북 OK) |
-| **3일차** | DSP 출력 저장 포맷 통일 + `madmom` 배치 스크립트 |
-| **4일차** | ground truth 로딩 검증 (시간 단위, 첫 beat 오프셋) — 여기서 버그 잡기 |
-| **5일차** | metric 코드 붙이기: 곡 5~10곡 수동/샘플로 숫자 맞는지 확인 |
-| **6~7일차** | 전체 트랙 1차 돌리기 + CSV; 막히는 곡은 로그 남기고 스킵 규칙 문서화 |
+| **1** | 두 데이터셋 경로·오디오·annotation 매칭; 3곡으로 madmom만 end-to-end |
+| **2** | 전처리 고정; DSP tempo(+beat 가능 시) 프로토타입 |
+| **3** | 1D-StateSpace 설치·샘플 실행; 출력 형식 madmom과 동일하게 맞추기 |
+| **4** | `mir_eval` 연결; 10곡으로 세 방법 수치 교차검증 |
+| **5~7** | 전체 배치 1차; 실패 트랙 규칙화 |
+| **8~10** | 표·그림·실패 사례·초안 |
+| **11~14** | LaTeX 이전, 재현 1회, 제출 패키징 |
 
-### 제2주 — 숫자 고정 + 보고서
-| 일 | 목표 |
-|---|---|
-| **8일차** | 최종 표 확정; 필요 시 하이퍼 1개만 조정(반복 금지) |
-| **9일차** | failure case 2~3개 피규어 + 짧은 해석 |
-| **10일차** | 초안 완성 (서론/방법/실험/결과/한계) |
-| **11일차** | ISMIR LaTeX로 옮기기 + 참고문헌 |
-| **12~14일차** | 교정, 재실행 1회(환경 명시), 코드/결과 zip 정리 |
-
-**시간이 정말 없을 때의 구제 플랜:** beat 비교는 잠시 접고 **tempo만** 표 + `madmom` 단일 baseline + limitation에 “beat는 후속 작업”이라고 명시. (과제 허용 범위는 확인.)
+**구제 플랜:** 1D-StateSpace만 막히면 보고서에 **환경 제약 + madmom·DSP 이원 비교**로 일단 마감하고, 1D-SS는 **부록 또는 후속**으로 명시.
 
 ---
 
 ## 5) 리스크 관리 메모
 
-- **Annotation 불일치 리스크:** 단위와 시간 정렬을 초기에 반드시 검증
-- **Metric 혼동 리스크:** tempo metric과 beat metric을 명확히 분리
-- **Scope 확장 리스크:** 약한 다수 방법보다 강한 2~3개 방법 우선
-- **재현성 리스크:** seed, 버전, 실행 설정을 모두 기록
+- **1D-StateSpace:** Python/Cython·버전 핀ning 이슈 가능 → 초기에 고정.  
+- **GiantSteps 오디오:** repo만 두면 annotation만 있을 수 있음 → 다운로드 스크립트 확인.  
+- **세 방법 출력 단위:** 프레임 vs 초 혼동 시 metric 전부 틀어짐 → 초기에 `mir_eval` 한 곡 수동 대조.
 
 ---
 
-## 6) Definition of Done (2주판)
+## 6) Definition of Done
 
-- [ ] **방법 2개**가 동일 트랙 집합에서 동일 metric으로 비교됨
-- [ ] 결과가 **하나의 CSV + 하나의 요약 표**로 남음
-- [ ] 보고서에 **정량 1표 + 실패 사례 2~3개** 이상
-- [ ] `README`에 설치/실행에 필요한 최소 명령이 있음
-- [ ] 데이터/annotation 한계와 생략한 분석은 본문에 짧게라도 명시됨
-
-(시간이 남으면 원본 Definition of Done의 3방법·clean 재현·세부 분해로 확장.)
+- [ ] **GTZAN + GiantSteps** 중 과제에서 요구하는 범위가 명확히 서술됨  
+- [ ] **M-DSP, madmom, 1D-StateSpace** 세 방법이 **동일 전처리·동일 metric**으로 비교됨 (1D-SS 불가 시 구제 플랜과 함께 문서화)  
+- [ ] 결과 CSV/JSON + 요약 표 + 실패 사례  
+- [ ] `README`에 데이터 경로·실행 명령·환경(conda/python 버전) 명시
