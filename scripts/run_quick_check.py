@@ -4,17 +4,17 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import sys
 from pathlib import Path
 from typing import Optional
 
-import librosa
 import numpy as np
 
-try:
-    from madmom.features.beats import DBNBeatTrackingProcessor, RNNBeatProcessor
-except Exception:  # pragma: no cover - 환경별 import 오류 대비
-    DBNBeatTrackingProcessor = None
-    RNNBeatProcessor = None
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+
+from eval_common import estimate_dsp_tempo, estimate_madmom_beats_and_tempo
 
 
 AUDIO_EXTENSIONS = [".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aif", ".aiff"]
@@ -85,39 +85,6 @@ def find_audio_for_track(track_id: str, audio_root: Path) -> Optional[Path]:
         if matches:
             return matches[0]
     return None
-
-
-def estimate_dsp_tempo(audio_path: Path, sample_rate: int) -> Optional[float]:
-    y, sr = librosa.load(str(audio_path), sr=sample_rate, mono=True)
-    tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
-    if np.isscalar(tempo):
-        return float(tempo)
-    if len(tempo) == 0:
-        return None
-    return float(tempo[0])
-
-
-def estimate_madmom_beats_and_tempo(audio_path: Path) -> tuple[Optional[int], Optional[float], str]:
-    if DBNBeatTrackingProcessor is None or RNNBeatProcessor is None:
-        return None, None, "madmom_import_error"
-
-    try:
-        act = RNNBeatProcessor()(str(audio_path))
-        beats = DBNBeatTrackingProcessor(fps=100)(act)
-    except Exception as exc:
-        return None, None, f"madmom_runtime_error:{type(exc).__name__}"
-
-    beats = np.asarray(beats)
-    if beats.size < 2:
-        return int(beats.size), None, "ok"
-
-    ibi = np.diff(beats)
-    med_ibi = float(np.median(ibi))
-    if med_ibi <= 0:
-        return int(beats.size), None, "ok"
-
-    tempo_bpm = 60.0 / med_ibi
-    return int(beats.size), float(tempo_bpm), "ok"
 
 
 def pct_error(pred: Optional[float], gt: Optional[float]) -> Optional[float]:

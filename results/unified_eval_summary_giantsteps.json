@@ -1,0 +1,24 @@
+{
+  "dataset": "giantsteps",
+  "n_rows": 664,
+  "metrics": {
+    "dsp": {
+      "n_acc": 661,
+      "mean_acc1": 0.36459909228441756,
+      "mean_acc2": 0.5219364599092284,
+      "mean_mae_bpm": 34.24477488653556,
+      "mean_error_pct": 24.661400907715585,
+      "n_beat_f": 0,
+      "mean_beat_fmeasure": null
+    },
+    "madmom": {
+      "n_acc": 661,
+      "mean_acc1": 0.8774583963691377,
+      "mean_acc2": 0.962178517397882,
+      "mean_mae_bpm": 9.544625567322239,
+      "mean_error_pct": 8.205396671709531,
+      "n_beat_f": 0,
+      "mean_beat_fmeasure": null
+    }
+  }
+}

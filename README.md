@@ -22,12 +22,10 @@ pip install -r requirements.txt
 
 3) GiantSteps만 먼저 쓸 때 (GTZAN을 mirdata로 받는 것과 별개로 진행 가능)
 
-- `dataset/giantsteps-tempo-dataset-master/README` 참고: 약 664개 mp3는 **별도 다운로드** (`audio_dl.sh` 또는 README의 Beatport URL 패턴).
-- 받은 mp3를 아래처럼 두면 스크립트가 `1030011.LOFI.bpm` ↔ `1030011.LOFI.mp3` 로 매칭한다.
-
-```text
-dataset/giantsteps-tempo-dataset-master/audio/1030011.LOFI.mp3
-```
+- 약 664개 mp3는 JKU 백업 미러에서 받는다(원본 `audio_dl.sh`와 동일한 URL·MD5 검증).
+  - **Windows:** `python -u scripts/download_giantsteps_audio.py --giantsteps-root dataset/giantsteps-tempo-dataset-master --workers 4`
+  - **Linux/Mac:** 같은 저장소의 `audio_dl.sh`(bash+curl) 사용 가능.
+- mp3는 `dataset/giantsteps-tempo-dataset-master/audio/` 아래에 두면, 스크립트가 `1030011.LOFI.bpm` ↔ `1030011.LOFI.mp3` 로 매칭한다.
 
 ```bash
 python scripts/run_giantsteps_quick_check.py --sample-size 5
