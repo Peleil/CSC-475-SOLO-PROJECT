@@ -1,11 +1,11 @@
 """
-공통 tempo/beat 추정과 지표 (DSP librosa, madmom DBN).
+공통 tempo/beat 추정과 지표 (DSP librosa, madmom DBN, 선택적 1D-StateSpace / jump-reward-inference).
 통합 eval 및 quick check 스크립트에서 재사용한다.
 """
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import librosa
 import numpy as np
@@ -106,6 +106,66 @@ def estimate_madmom_beats_and_tempo(
         return n, None, st
     t = tempo_from_beat_times(beats)
     return n, t, "ok"
+
+
+# mjhydri/1D-StateSpace — PyPI: jump-reward-inference (BeatNet + jump-reward inference)
+_1DSS_ESTIMATOR: Any = None
+_1DSS_IMPORT_ERROR: Optional[str] = None
+
+
+def get_1dss_joint_estimator():
+    """싱글톤: BeatNet 가중치 로드는 첫 호출에만 (무겁다)."""
+    global _1DSS_ESTIMATOR, _1DSS_IMPORT_ERROR
+    if _1DSS_IMPORT_ERROR is not None:
+        return None
+    if _1DSS_ESTIMATOR is not None:
+        return _1DSS_ESTIMATOR
+    try:
+        from jump_reward_inference.joint_tracker import joint_inference
+
+        _1DSS_ESTIMATOR = joint_inference(1, plot=False)
+    except Exception as exc:
+        _1DSS_IMPORT_ERROR = _fmt_exc(exc)
+        return None
+    return _1DSS_ESTIMATOR
+
+
+def estimate_1dss_beats_and_tempo(
+    audio_path: Path,
+) -> tuple[np.ndarray, Optional[float], str]:
+    """
+    ICASSP 2022 1D state-space + jump-reward (BeatNet 활성도 → 추론).
+    출력 행: (시간[s], 이벤트종류, local tempo, meter) — 비트 시각은 col 0.
+    전역 템포는 local tempo 열의 양수값 중앙값, 없으면 비트 간격 기반.
+    """
+    est = get_1dss_joint_estimator()
+    if est is None:
+        return (
+            np.array([]),
+            None,
+            f"1dss_import_error:{_1DSS_IMPORT_ERROR or 'unknown'}",
+        )
+    try:
+        raw = est.process(_audio_fspath(audio_path))
+    except Exception as exc:
+        return np.array([]), None, f"1dss_runtime_error:{_fmt_exc(exc)}"
+
+    out = np.asarray(raw, dtype=float)
+    if out.size == 0:
+        return np.array([]), None, "1dss_empty_output"
+    if out.ndim != 2 or out.shape[1] < 3:
+        return np.array([]), None, "1dss_bad_shape"
+    times = np.asarray(out[:, 0], dtype=float).ravel()
+    beats = times[np.isfinite(times) & (times >= 0)]
+    local_tp = out[:, 2] if out.shape[1] > 2 else np.array([])
+    tempo_global: Optional[float] = None
+    if local_tp.size > 0:
+        pos = local_tp[np.isfinite(local_tp) & (local_tp > 0)]
+        if pos.size > 0:
+            tempo_global = float(np.median(pos))
+    if tempo_global is None or tempo_global <= 0:
+        tempo_global = tempo_from_beat_times(beats)
+    return beats, tempo_global, "ok"
 
 
 def pct_error(pred: Optional[float], gt: Optional[float]) -> Optional[float]:

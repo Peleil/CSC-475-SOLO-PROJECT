@@ -1,17 +1,4 @@
-# Python 3.9 권장: madmom 0.16.x는 3.10+ collections.MutableSequence 제거와 충돌.
-# NumPy 1.24+ 에서 np.float 제거 → madmom io 모듈과 충돌하므로 상한 고정.
-numpy>=1.23.5,<1.24
-scipy
-cython>=0.29
-librosa
-# Windows: librosa/madmom 오디오 로딩에 필요한 경우가 많음
-soundfile>=0.12
-audioread>=3.0
-pandas
-tqdm
-madmom
-mirdata>=1.0.0
-# Python 3.9: chardet 5.2+ / 7.x 가 dataclass(slots=True) 사용 → 3.10+ 전용. mirdata는 chardet>=5 필요 → 5.1.x 고정.
-chardet>=5.0,<5.2
-huggingface_hub>=0.20.0
-mir_eval>=0.7
+# 프로젝트는 템포/비트 평가용 의존성을 분리했다.
+# - requirements-tempo.txt  + conda env 권장 이름: csc475-tempo
+# - requirements-beat.txt    + conda env 권장 이름: csc475-beat
+# 자세한 실행은 README.md 및 MIR_Project_Summary_Blueprint_Checklists.md 참고.

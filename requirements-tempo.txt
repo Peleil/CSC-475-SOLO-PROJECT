@@ -1,0 +1,24 @@
+# Conda env "csc475-tempo" (또는 이름 자유): 템포 평가 run_tempo_eval.py
+# DSP + madmom — numpy 1.23.x / numba 0.59 와 호환.
+# tempo_1dss.csv 를 채우려면 jump-reward 가 필요한데 numba/numpy 와 충돌할 수 있음 →
+#   그 경우 run_tempo_eval.py 를 requirements-beat.txt 환경에서 실행하거나,
+#   아래 주석을 해제해 별도 venv 에서만 설치.
+
+numpy>=1.23.5,<1.24
+scipy>=1.10
+cython>=0.29
+librosa
+soundfile>=0.12
+audioread>=3.0
+pandas
+tqdm
+madmom
+chardet>=5.0,<5.2
+huggingface_hub>=0.20.0
+mir_eval>=0.7
+# scripts/download_gtzan_genre_mirdata.py
+mirdata>=1.0.0
+
+# 1D-StateSpace (tempo_1dss 열) — 선택, 메인 스택과 충돌 시 beat 전용 env 사용 권장
+# jump-reward-inference
+# PyAudio>=0.2.14

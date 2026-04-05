@@ -2,11 +2,20 @@ Beat Tracking and Tempo Estimation Project
 
 ## Quick Start (2주 크런치용)
 
-1) 가상환경 생성/활성화 후 의존성 설치
+1) Conda 환경을 **둘** 둔다 (템포용 / 비트용). 루트 `requirements.txt`는 분기 안내만 있다.
 
 ```bash
-pip install -r requirements.txt
+conda env create -f environment-tempo.yml
+conda activate csc475-tempo
+pip install -r requirements-tempo.txt
+
+conda env create -f environment-beat.yml
+conda activate csc475-beat
+pip install -r requirements-beat.txt
 ```
+
+- **템포 평가** (`scripts/run_tempo_eval.py`): DSP, madmom, 1DSS 각각 CSV 3개 — `results/tempo_dsp.csv`, `tempo_madmom.csv`, `tempo_1dss.csv`. `1dss` 열은 jump-reward 가 필요해 **같은 스크립트를 `csc475-beat` 에서 돌려도 된다** (의존성 충돌 시).
+- **비트 평가** (`scripts/run_beat_eval.py`): madmom, 1DSS — `results/beat_madmom.csv`, `beat_1dss.csv` (**GTZAN만**; GiantSteps는 비트 GT 없음).
 
 2) GTZAN-Genre (mirdata) — `gtzan_genre` 데이터셋 받기
 
@@ -27,25 +36,21 @@ pip install -r requirements.txt
   - **Linux/Mac:** 같은 저장소의 `audio_dl.sh`(bash+curl) 사용 가능.
 - mp3는 `dataset/giantsteps-tempo-dataset-master/audio/` 아래에 두면, 스크립트가 `1030011.LOFI.bpm` ↔ `1030011.LOFI.mp3` 로 매칭한다.
 
-```bash
-python scripts/run_giantsteps_quick_check.py --sample-size 5
-```
-
-- 결과: `results/giantsteps_quick_check.csv` (`dsp_acc1` / `madmom_acc1` 은 상대 오차 4% 이내 여부)
-- 오디오가 아직 없으면 `status=missing_audio` 로 남는다 → 정상, 다운로드 후 재실행.
-
-4) (선택) 샘플 quick check — GiantSteps annotation만 있을 때
+평가 실행 예:
 
 ```bash
-python scripts/run_quick_check.py --sample-size 3
+conda activate csc475-tempo
+python scripts/run_tempo_eval.py --dataset both --sample-size 50
+
+conda activate csc475-beat
+python scripts/run_beat_eval.py --sample-size 50
 ```
 
-- GTZAN에서 checksum mismatch track(예: `jazz.00054`)을 자동 제외하려면:  
-  `python scripts/run_quick_check.py --sample-size 20 --exclude-invalid-json results/invalid_tracks_gtzan_genre.json`
+- 오디오가 없으면 CSV `status=missing_audio`. 비트 평가는 **GTZAN만** (참 비트 파일이 있는 트랙).
 
-5) 결과 확인
-- `results/quick_check.csv` 또는 `results/giantsteps_quick_check.csv`
-- `status`가 `missing_audio`이면 오디오 경로를 확인하거나 `--audio-root` 지정
+4) 결과 확인
+- 템포: `results/tempo_dsp.csv`, `tempo_madmom.csv`, `tempo_1dss.csv`
+- 비트: `results/beat_madmom.csv`, `beat_1dss.csv`
 
 1. For the final report the text will be copied and formatted as an ISMIR paper using LaTex. 
 

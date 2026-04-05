@@ -1,0 +1,9 @@
+# conda env create -f environment-tempo.yml
+# conda activate csc475-tempo
+# pip install -r requirements-tempo.txt
+name: csc475-tempo
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pip
