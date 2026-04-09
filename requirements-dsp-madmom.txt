@@ -1,0 +1,17 @@
+# Conda env "csc475-dsp-madmom": DSP + madmom (템포/비트 평가 공통, numpy 1.23 스택)
+# run_tempo_eval.py --methods dsp,madmom
+# run_beat_eval.py --methods madmom
+
+numpy>=1.23.5,<1.24
+scipy>=1.10
+cython>=0.29
+librosa
+soundfile>=0.12
+audioread>=3.0
+pandas
+tqdm
+madmom
+chardet>=5.0,<5.2
+huggingface_hub>=0.20.0
+mir_eval>=0.7
+mirdata>=1.0.0

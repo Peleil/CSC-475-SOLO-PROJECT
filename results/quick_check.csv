@@ -1,4 +1,0 @@
-track_id,annotation_path,audio_path,gt_bpm,dsp_tempo_bpm,madmom_tempo_bpm,num_beats_madmom,dsp_error_pct,madmom_error_pct,status,note
-1030011,dataset\giantsteps-tempo-dataset-master\annotations_v2\tempo\1030011.LOFI.bpm,,127.0,,,,,,missing_audio,audio_root에서 track_id와 매칭되는 오디오를 찾지 못함
-1068430,dataset\giantsteps-tempo-dataset-master\annotations_v2\tempo\1068430.LOFI.bpm,,174.0,,,,,,missing_audio,audio_root에서 track_id와 매칭되는 오디오를 찾지 못함
-1084996,dataset\giantsteps-tempo-dataset-master\annotations_v2\tempo\1084996.LOFI.bpm,,142.0,,,,,,missing_audio,audio_root에서 track_id와 매칭되는 오디오를 찾지 못함

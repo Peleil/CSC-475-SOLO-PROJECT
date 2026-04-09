@@ -1,0 +1,9 @@
+# conda env create -f environment-1dss.yml
+# conda activate csc475-1dss
+# pip install -r requirements-1dss.txt
+name: csc475-1dss
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pip

@@ -1,0 +1,9 @@
+# conda env create -f environment-dsp-madmom.yml
+# conda activate csc475-dsp-madmom
+# pip install -r requirements-dsp-madmom.txt
+name: csc475-dsp-madmom
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pip

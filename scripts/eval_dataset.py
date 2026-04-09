@@ -1,6 +1,12 @@
 """
 GiantSteps / GTZAN-Genre 공통 데이터 로딩 (mirdata 불필요).
-GTZAN은 mirdata data_home 폴더 레이아웃을 따른다.
+
+GTZAN 레이아웃 (data_home = 보통 dataset/mirdata_gtzan_genre):
+  - 오디오(기본): data_home/gtzan_genre/genres/{장르}/{track_id}.wav|.au|…
+    예: mirdata_gtzan_genre/gtzan_genre/genres/blues/blues.00042.wav
+    보조: gtzan_genre/{장르}/{track_id} (genres 없는 배치)도 탐색.
+  - 템포·비트 라벨: gtzan_tempo_beat-main/tempo/*.bpm, beats/*.beats (iter_gtzan_tasks 가 여기서만
+    BPM·beats 경로를 잡음. 오디오는 gtzan_tempo_beat-main 을 쓰지 않음.)
 """
 from __future__ import annotations
 
@@ -11,8 +17,17 @@ from typing import Iterator, Optional
 
 import numpy as np
 
-# eval_common 와 동일 (순환/무거운 import 방지)
-AUDIO_EXTENSIONS_DEFAULT = [".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aif", ".aiff"]
+# eval_common 와 동일 (순환/무거운 import 방지). GTZAN 원본(Marsyas)은 .au 가 흔함.
+AUDIO_EXTENSIONS_DEFAULT = [
+    ".wav",
+    ".au",
+    ".mp3",
+    ".flac",
+    ".ogg",
+    ".m4a",
+    ".aif",
+    ".aiff",
+]
 
 __all__ = [
     "load_gt_bpm_file",
@@ -22,6 +37,8 @@ __all__ = [
     "find_gtzan_audio",
     "iter_giantsteps_tasks",
     "iter_gtzan_tasks",
+    "first_giantsteps_task_with_audio",
+    "first_gtzan_task_with_audio",
     "tempo_bpm_stem_to_track_id",
     "gtzan_track_id_to_stem",
 ]
@@ -94,12 +111,21 @@ def gtzan_track_id_to_stem(tid: str) -> str:
 
 
 def find_gtzan_audio(data_home: Path, track_id: str) -> Optional[Path]:
+    """mirdata 오디오 루트(gtzan_genre) 아래에서 track_id 에 맞는 파일을 찾는다."""
+    if "." not in track_id:
+        return None
     genre, _num = track_id.split(".", 1)
-    base = data_home / "gtzan_genre" / "genres" / genre / track_id
-    for ext in AUDIO_EXTENSIONS_DEFAULT:
-        p = base.with_suffix(ext)
-        if p.is_file():
-            return p
+    # track_id 가 classical.00071 처럼 점이 두 개 이상이면 Path(.../classical.00071).with_suffix(".wav")
+    # 가 classical.wav 로 깨지므로, 반드시 f"{track_id}{ext}" 로 이어 붙인다.
+    dirs = (
+        data_home / "gtzan_genre" / "genres" / genre,
+        data_home / "gtzan_genre" / genre,
+    )
+    for d in dirs:
+        for ext in AUDIO_EXTENSIONS_DEFAULT:
+            p = d / f"{track_id}{ext}"
+            if p.is_file():
+                return p
     return None
 
 
@@ -114,6 +140,53 @@ def load_gtzan_beat_times(beats_path: Path) -> Optional[np.ndarray]:
         return t if t.size > 0 else None
     except Exception:
         return None
+
+
+def first_giantsteps_task_with_audio(
+    annotation_dir: Path,
+    audio_root: Path,
+    excluded: set[str],
+) -> Optional[tuple[str, Path, Path]]:
+    """
+    `iter_giantsteps_tasks` 와 동일 규칙이나 **셔플 없이** 정렬된 *.bpm 순으로,
+    오디오 파일이 실제로 있는 **첫** 트랙.
+    반환: (stem, bpm_path, audio_path)
+    """
+    for bpm_file in sorted(annotation_dir.rglob("*.bpm")):
+        stem = bpm_file.stem
+        cands = candidate_track_ids_from_bpm_stem(stem)
+        if excluded.intersection(cands):
+            continue
+        audio = find_audio_giantsteps(stem, audio_root)
+        if audio is not None and audio.is_file():
+            return stem, bpm_file, audio
+    return None
+
+
+def first_gtzan_task_with_audio(
+    data_home: Path,
+    excluded: set[str],
+) -> Optional[tuple[str, Path, Path, Optional[Path]]]:
+    """
+    `iter_gtzan_tasks` 와 동일 규칙, 셔플 없이 tempo/*.bpm 정렬 순의 첫 오디오.
+    반환: (track_id, tempo_bpm_path, audio_path, beats_path or None)
+    """
+    tempo_dir = data_home / "gtzan_tempo_beat-main" / "tempo"
+    beats_dir = data_home / "gtzan_tempo_beat-main" / "beats"
+    if not tempo_dir.is_dir():
+        return None
+    for bpm_path in sorted(tempo_dir.glob("*.bpm")):
+        stem = bpm_path.stem
+        tid = tempo_bpm_stem_to_track_id(stem)
+        if tid in excluded:
+            continue
+        audio = find_gtzan_audio(data_home, tid)
+        if audio is not None and audio.is_file():
+            ann_stem = gtzan_track_id_to_stem(tid)
+            bp = beats_dir / f"{ann_stem}.beats"
+            beats_path = bp if bp.is_file() else None
+            return tid, bpm_path, audio, beats_path
+    return None
 
 
 def iter_giantsteps_tasks(
@@ -147,7 +220,8 @@ def iter_gtzan_tasks(
 ) -> Iterator[tuple[str, Path, Optional[Path], Optional[Path]]]:
     """
     (track_id, tempo_bpm_path, audio_path, beats_path or None)
-    beats_path는 파일이 있으면 설정.
+    tempo/bpm·beats 는 gtzan_tempo_beat-main 만 참조하고,
+    audio_path 는 find_gtzan_audio(data_home) → gtzan_genre/ 아래에서만 찾는다.
     """
     tempo_dir = data_home / "gtzan_tempo_beat-main" / "tempo"
     beats_dir = data_home / "gtzan_tempo_beat-main" / "beats"

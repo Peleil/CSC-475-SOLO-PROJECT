@@ -1,9 +1,0 @@
-# conda env create -f environment-beat.yml
-# conda activate csc475-beat
-# pip install -r requirements-beat.txt
-name: csc475-beat
-channels:
-  - conda-forge
-dependencies:
-  - python=3.9
-  - pip

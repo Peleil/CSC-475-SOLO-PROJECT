@@ -1,8 +1,0 @@
-# Conda env "csc475-beat": 비트 평가 run_beat_eval.py (madmom + 1DSS / jump-reward)
-# jump-reward-inference 가 numba==0.54.1 과 호환되는 numpy 1.20.x 스택을 끌어옴 (템포 env 의 numpy 1.23 과 다름).
-# 상단에 numpy/librosa 를 따로 박지 말 것 — pip 백트래킹으로 numba 소스 빌드로 떨어질 수 있음.
-
-jump-reward-inference==0.0.8
-mir_eval>=0.7
-chardet>=5.0,<5.2
-PyAudio>=0.2.14

@@ -1,0 +1,9 @@
+# Conda env "csc475-1dss": 1D-StateSpace (jump-reward 가 numba/numpy 스택 고정)
+# run_tempo_eval.py --methods 1dss
+# run_beat_eval.py --methods 1dss
+
+jump-reward-inference==0.0.8
+mir_eval>=0.7
+chardet>=5.0,<5.2
+PyAudio>=0.2.14
+tqdm

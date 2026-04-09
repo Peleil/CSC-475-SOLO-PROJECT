@@ -1,0 +1,40 @@
+{
+  "method": "dsp",
+  "n_rows": 1662,
+  "status_counts": {
+    "ok": 1659,
+    "skip_bad_gt": 3
+  },
+  "overall": {
+    "n_with_metrics": 1659,
+    "mean_error_pct": 21.839486,
+    "mean_mae_bpm": 25.876894,
+    "acc1_rate": 0.622061,
+    "acc2_rate": 0.810127
+  },
+  "by_dataset": {
+    "giantsteps": {
+      "n_rows": 664,
+      "status_counts": {
+        "ok": 661,
+        "skip_bad_gt": 3
+      },
+      "n_with_metrics": 661,
+      "mean_error_pct": 18.154916,
+      "mean_mae_bpm": 25.600592,
+      "acc1_rate": 0.576399,
+      "acc2_rate": 0.739788
+    },
+    "gtzan_genre": {
+      "n_rows": 998,
+      "status_counts": {
+        "ok": 998
+      },
+      "n_with_metrics": 998,
+      "mean_error_pct": 24.279867,
+      "mean_mae_bpm": 26.059896,
+      "acc1_rate": 0.652305,
+      "acc2_rate": 0.856713
+    }
+  }
+}

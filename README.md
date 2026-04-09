@@ -2,20 +2,17 @@ Beat Tracking and Tempo Estimation Project
 
 ## Quick Start (2주 크런치용)
 
-1) Conda 환경을 **둘** 둔다 (템포용 / 비트용). 루트 `requirements.txt`는 분기 안내만 있다.
+1) Conda 환경을 **둘** 둔다 (DSP+madmom 스택 / 1DSS 스택). pip 의존성은 `requirements-dsp-madmom.txt`와 `requirements-1dss.txt`로 나뉜다.
 
 ```bash
-conda env create -f environment-tempo.yml
-conda activate csc475-tempo
-pip install -r requirements-tempo.txt
+conda env create -f environment-dsp-madmom.yml
+conda activate csc475-dsp-madmom
+pip install -r requirements-dsp-madmom.txt
 
-conda env create -f environment-beat.yml
-conda activate csc475-beat
-pip install -r requirements-beat.txt
+conda env create -f environment-1dss.yml
+conda activate csc475-1dss
+pip install -r requirements-1dss.txt
 ```
-
-- **템포 평가** (`scripts/run_tempo_eval.py`): DSP, madmom, 1DSS 각각 CSV 3개 — `results/tempo_dsp.csv`, `tempo_madmom.csv`, `tempo_1dss.csv`. `1dss` 열은 jump-reward 가 필요해 **같은 스크립트를 `csc475-beat` 에서 돌려도 된다** (의존성 충돌 시).
-- **비트 평가** (`scripts/run_beat_eval.py`): madmom, 1DSS — `results/beat_madmom.csv`, `beat_1dss.csv` (**GTZAN만**; GiantSteps는 비트 GT 없음).
 
 2) GTZAN-Genre (mirdata) — `gtzan_genre` 데이터셋 받기
 
@@ -36,21 +33,94 @@ pip install -r requirements-beat.txt
   - **Linux/Mac:** 같은 저장소의 `audio_dl.sh`(bash+curl) 사용 가능.
 - mp3는 `dataset/giantsteps-tempo-dataset-master/audio/` 아래에 두면, 스크립트가 `1030011.LOFI.bpm` ↔ `1030011.LOFI.mp3` 로 매칭한다.
 
-평가 실행 예:
+---
+
+## 실행 커맨드 정리
+
+아래 명령은 **저장소(프로젝트) 루트 디렉터리**에서 실행한다. (`cd`로 해당 폴더로 이동한 뒤 `python scripts/...`)
+
+### 어떤 Conda 환경에서 무엇을 돌리나
+
+| 환경 | 용도 | `run_tempo_eval.py` | `run_beat_eval.py` |
+|------|------|---------------------|-------------------|
+| **csc475-dsp-madmom** | librosa DSP, madmom, autocorr | `--methods dsp`, `madmom`, `autocorr` (조합 가능) | `--methods madmom` |
+| **csc475-1dss** | jump-reward-inference (1DSS / BeatNet) | `--methods 1dss` | `--methods 1dss` |
+
+- **템포 평가**는 GiantSteps + GTZAN-Genre를 지원한다 (`--dataset`).
+- **비트 평가**는 **GTZAN만** (GiantSteps 공개 세트에 비트 GT 없음).
+
+### 템포: `scripts/run_tempo_eval.py` (`csc475-dsp-madmom` 또는 `csc475-1dss`)
 
 ```bash
-conda activate csc475-tempo
-python scripts/run_tempo_eval.py --dataset both --sample-size 50
+# DSP + madmom + autocorr (dsp-madmom 환경)
+conda activate csc475-dsp-madmom
+python scripts/run_tempo_eval.py --dataset both --sample-size 50 --methods dsp,madmom,autocorr
 
-conda activate csc475-beat
-python scripts/run_beat_eval.py --sample-size 50
+# 1DSS만 (1dss 환경)
+conda activate csc475-1dss
+python scripts/run_tempo_eval.py --dataset both --sample-size 50 --methods 1dss
 ```
 
-- 오디오가 없으면 CSV `status=missing_audio`. 비트 평가는 **GTZAN만** (참 비트 파일이 있는 트랙).
+주요 옵션:
 
-4) 결과 확인
-- 템포: `results/tempo_dsp.csv`, `tempo_madmom.csv`, `tempo_1dss.csv`
-- 비트: `results/beat_madmom.csv`, `beat_1dss.csv`
+| 옵션 | 기본값 | 설명 |
+|------|--------|------|
+| `--dataset` | `both` | `giantsteps` \| `gtzan_genre` \| `both` |
+| `--methods` | `dsp,madmom` | 쉼표 구분: `dsp`, `madmom`, `1dss`, `autocorr` |
+| `--sample-size` | 전체 | 무작위 샘플 개수 상한 (`None`이면 제한 없음) |
+| `--seed` | `0` | 샘플 순서 시드 |
+| `--giantsteps-root` | `dataset/giantsteps-tempo-dataset-master` | GiantSteps 루트 |
+| `--data-home` | `dataset/mirdata_gtzan_genre` | GTZAN: 오디오 `gtzan_genre/...`, 라벨 `gtzan_tempo_beat-main/` |
+| `--exclude-invalid-json` | `results/invalid_tracks_gtzan_genre.json` | 제외할 track id 목록 |
+| `--sample-rate` | `44100` | mono 리샘플 Hz (모든 메서드 동일 입력) |
+| `--sample-rate-dsp` | — | 지정 시 `--sample-rate` 대신 사용(호환용 이름) |
+| `--output-dir` | `results` | CSV·요약 JSON 저장 폴더 |
+| `--no-progress` | — | tqdm 진행 표시 끔 |
+
+산출물 (선택한 `--methods`마다):
+
+- `tempo_dsp.csv`, `tempo_madmom.csv`, `tempo_1dss.csv`, `tempo_autocorr.csv`
+- 메서드별 요약: `tempo_summary_dsp.json`, `tempo_summary_madmom.json`, …
+
+### 비트: `scripts/run_beat_eval.py` (`csc475-dsp-madmom` 또는 `csc475-1dss`)
+
+```bash
+conda activate csc475-dsp-madmom
+python scripts/run_beat_eval.py --sample-size 50 --methods madmom
+
+conda activate csc475-1dss
+python scripts/run_beat_eval.py --sample-size 50 --methods 1dss
+```
+
+주요 옵션:
+
+| 옵션 | 기본값 | 설명 |
+|------|--------|------|
+| `--methods` | `madmom` | `madmom`, `1dss`, 또는 `madmom,1dss` |
+| `--sample-size`, `--seed` | — | 템포 스크립트와 동일 의미 |
+| `--data-home`, `--exclude-invalid-json` | 위와 동일 | GTZAN 비트·템포 라벨 경로 |
+| `--sample-rate`, `--sample-rate-dsp` | `44100` | madmom / 1dss 공통 입력 Hz |
+| `--output-dir` | `results` | |
+| `--no-progress` | — | |
+
+산출물: `beat_madmom.csv`, `beat_1dss.csv` (요청한 메서드만).
+
+### 데이터 다운로드 스크립트 (환경)
+
+- **GTZAN (mirdata 레이아웃):** 보통 `csc475-dsp-madmom`에서 `requests` 등으로 받기 (`download_gtzan_genre_mirdata.py`).
+- **GiantSteps mp3:** 동일 환경에서 `download_giantsteps_audio.py`.
+
+---
+
+## 결과 파일 (기본 `results/`)
+
+- 템포: `tempo_dsp.csv`, `tempo_madmom.csv`, `tempo_autocorr.csv`, `tempo_1dss.csv`, `tempo_summary_*.json`
+- 비트: `beat_madmom.csv`, `beat_1dss.csv`
+- 검증 경고 트랙: `invalid_tracks_gtzan_genre.json`
+
+오디오가 없으면 CSV에 `status=missing_audio` 등으로 표시된다.
+
+---
 
 1. For the final report the text will be copied and formatted as an ISMIR paper using LaTex. 
 
@@ -63,7 +133,7 @@ https://github.com/marsyas/marsgeyas
 3. Papers to refer (pdfs are also in /papers folder):
 Gouyon, Fabien, et al. "An experimental comparison of audio tempo induction algorithms." IEEE Transactions on Audio, Speech, and Language Processing 14.5 (2006): 1832-1844.
 
-Percival, Graham, and George Tzanetakis. "Streamlined tempo estimation based on autocorrelation and cross-correlation with pulses." IEEE/ACM Transactions on Audio, Speech, and Language Processing 22.12 (2014): 1765-1776.
+Percival & Tzanetakis (2014) — `scripts/autocorr_tempo.py` 에서 참고한 OSS+ACF+pulse 정식 (`--methods autocorr`).
 
 Böck, Sebastian, and Markus Schedl. "Enhanced beat tracking with context-aware neural networks." Proc. Int. Conf. Digital Audio Effects. 2011.
 
@@ -76,8 +146,9 @@ Böck, Sebastian, and Markus Schedl. "Enhanced beat tracking with context-aware 
 
 5. 비교 방법 (계획)
 
-1. Autocorrelation / DSP baseline  
-2. **madmom** (DBN beat tracking)  
-3. **1D-StateSpace** — https://github.com/mjhydri/1D-StateSpace  
+1. **DSP** — librosa `beat_track` 템포  
+2. **autocorr** — Percival–Tzanetakis류 OSS+ACF+pulse  
+3. **madmom** (DBN beat tracking)  
+4. **1D-StateSpace** — https://github.com/mjhydri/1D-StateSpace  
 
 상세 일정·체크리스트는 `MIR_Project_Summary_Blueprint_Checklists.md` 참고.
