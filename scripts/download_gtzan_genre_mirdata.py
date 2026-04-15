@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-GTZAN-Genre 데이터셋을 mirdata로 내려받는다.
+Download the GTZAN-Genre dataset via mirdata.
 
-- default + --source mirdata: mirdata 기본 URL (UVic opihi) — 방화벽/서버 다운 시 타임아웃 날 수 있음.
-- default + --source huggingface: Hugging Face `marsyas/gtzan`의 `data/genres.tar.gz`로 오디오 확보 후,
-  mirdata로 tempo/beat 어노테이션만 추가 다운로드.
-- mini / test: mirdata 경로만 사용 (--source huggingface 는 default 전용).
+- default + --source mirdata: mirdata default URL (UVic opihi).
+- default + --source huggingface: download `data/genres.tar.gz` from
+  Hugging Face `marsyas/gtzan`, then download tempo/beat annotations via mirdata.
+- mini / test: mirdata path only (--source huggingface is default-only).
 
-사용 예:
+Examples:
   python scripts/download_gtzan_genre_mirdata.py --version default --source huggingface
   python scripts/download_gtzan_genre_mirdata.py --version mini
 """
@@ -24,7 +24,6 @@ from urllib.error import URLError
 
 from mirdata.datasets.gtzan_genre import Dataset
 
-# mirdata REMOTES["all"] 와 동일 (genres.tar.gz 무결성)
 GTZAN_GENRES_MD5 = "5b3d6dddb579ab49814ab86dba69e7c7"
 HF_REPO = "marsyas/gtzan"
 HF_GENRES_RELPATH = "data/genres.tar.gz"
@@ -63,7 +62,7 @@ def _download_and_extract_genres_from_huggingface(
         from huggingface_hub import hf_hub_download
     except ImportError as exc:
         raise RuntimeError(
-            "huggingface_hub 가 필요합니다. conda/pip: pip install huggingface_hub"
+            "huggingface_hub is required. Install with: pip install huggingface_hub"
         ) from exc
 
     dest_dir = data_home / "gtzan_genre"
@@ -76,14 +75,14 @@ def _download_and_extract_genres_from_huggingface(
         got = _md5_file(tar_path)
         if got != GTZAN_GENRES_MD5:
             print(
-                f"[hf] 기존 genres.tar.gz MD5 불일치 ({got} != {GTZAN_GENRES_MD5}). "
-                "다시 받으려면 --force 또는 --skip-md5-check 로 검증 생략.",
+                f"[hf] Existing genres.tar.gz MD5 mismatch ({got} != {GTZAN_GENRES_MD5}). "
+                "Use --force to redownload or --skip-md5-check to skip verification.",
                 file=sys.stderr,
             )
             raise SystemExit(1)
 
     if need_tar:
-        print(f"[hf] 다운로드: {HF_REPO} / {HF_GENRES_RELPATH} (용량 ~1.2GB, 시간이 걸릴 수 있음)")
+        print(f"[hf] Downloading: {HF_REPO} / {HF_GENRES_RELPATH} (~1.2GB, may take time)")
         cached = hf_hub_download(
             repo_id=HF_REPO,
             filename=HF_GENRES_RELPATH,
@@ -95,14 +94,14 @@ def _download_and_extract_genres_from_huggingface(
         got = _md5_file(tar_path)
         if got != GTZAN_GENRES_MD5:
             print(
-                f"[hf] 경고: MD5가 mirdata 기대값과 다름 ({got} vs {GTZAN_GENRES_MD5}). "
-                "다른 미러 파일일 수 있습니다. 계속 압축 해제합니다.",
+                f"[hf] Warning: MD5 differs from mirdata expectation ({got} vs {GTZAN_GENRES_MD5}). "
+                "Proceeding with extraction.",
                 file=sys.stderr,
             )
 
     need_extract = force or not genres_dir.is_dir() or not any(genres_dir.iterdir())
     if need_extract:
-        print(f"[hf] 압축 해제: {tar_path} -> {dest_dir}")
+        print(f"[hf] Extracting: {tar_path} -> {dest_dir}")
         with tarfile.open(tar_path, "r:gz") as tf:
             tf.extractall(path=str(dest_dir))
 
@@ -113,40 +112,40 @@ def main() -> int:
         "--data-home",
         type=Path,
         default=Path("dataset/mirdata_gtzan_genre"),
-        help="mirdata가 데이터를 풀어둘 디렉터리",
+        help="Directory where mirdata stores dataset files",
     )
     p.add_argument(
         "--version",
         choices=("default", "mini", "test"),
         default="default",
-        help="default=전체; mini=소규모; test=샘플 인덱스(개발용)",
+        help="default=full; mini=small subset; test=sample index",
     )
     p.add_argument(
         "--source",
         choices=("mirdata", "huggingface"),
         default="mirdata",
-        help="default 전체 오디오: mirdata(UVic URL) 또는 huggingface(HF에 호스팅된 genres.tar.gz)",
+        help="Source for full audio in default mode: mirdata or huggingface",
     )
     p.add_argument(
         "--force",
         action="store_true",
-        help="이미 있어도 덮어쓰기",
+        help="Overwrite existing files",
     )
     p.add_argument(
         "--skip-md5-check",
         action="store_true",
-        help="genres.tar.gz MD5 검증 생략 (HF 파일이 기대값과 다를 때만 임시로)",
+        help="Skip genres.tar.gz MD5 check",
     )
     p.add_argument(
         "--strict-validate",
         action="store_true",
-        help="검증 경고(누락/체크섬 불일치)가 있으면 실패(exit 1). 기본은 경고만 출력 후 계속 진행.",
+        help="Fail with exit 1 on validation warnings (missing/checksum mismatch).",
     )
     p.add_argument(
         "--invalid-list-path",
         type=Path,
         default=Path("results/invalid_tracks_gtzan_genre.json"),
-        help="검증에서 불일치로 나온 track id 목록 저장 경로",
+        help="Path to save track IDs flagged by validation",
     )
     args = p.parse_args()
 
@@ -155,8 +154,8 @@ def main() -> int:
 
     if args.source == "huggingface" and args.version != "default":
         print(
-            "[error] --source huggingface 는 --version default 전체 GTZAN과 함께만 사용합니다. "
-            "mini는 mirdata mini URL을 쓰세요.",
+            "[error] --source huggingface is only supported with --version default. "
+            "Use mirdata source for mini/test.",
             file=sys.stderr,
         )
         return 2
@@ -171,7 +170,7 @@ def main() -> int:
             skip_md5=args.skip_md5_check,
         )
         ds = Dataset(data_home=str(root), version=args.version)
-        print("[mirdata] tempo/beat 어노테이션 + 인덱스만 mirdata로 다운로드")
+        print("[mirdata] Downloading tempo/beat annotations and index via mirdata")
         ds.download(
             partial_download=["tempo_beat_annotations"],
             force_overwrite=args.force,
@@ -184,7 +183,7 @@ def main() -> int:
             err = str(exc)
             if "10060" in err or "timed out" in err.lower() or "failed to respond" in err.lower():
                 print(
-                    "\n[hint] UVic 서버(opihi) 연결이 실패했습니다. Hugging Face 미러로 받으세요:\n"
+                    "\n[hint] Failed to reach UVic opihi server. Try Hugging Face mirror:\n"
                     "  python scripts/download_gtzan_genre_mirdata.py "
                     "--version default --source huggingface --data-home "
                     f'"{args.data_home}"\n',
@@ -192,7 +191,7 @@ def main() -> int:
                 )
             raise
 
-    print("[mirdata] download 단계 완료.")
+    print("[mirdata] download stage completed.")
 
     ds = Dataset(data_home=str(root), version=args.version)
     missing_files, invalid_checksums = ds.validate(verbose=True)
@@ -215,27 +214,27 @@ def main() -> int:
 
     has_errors = _has_validation_errors(missing_files, invalid_checksums)
     if has_errors:
-        print("[mirdata] validate: 일부 파일 누락 또는 체크섬 불일치", file=sys.stderr)
+        print("[mirdata] validate: some files are missing or have checksum mismatch", file=sys.stderr)
         print(f"  missing: {missing_files}", file=sys.stderr)
         print(f"  invalid: {invalid_checksums}", file=sys.stderr)
         print(
-            f"[mirdata] invalid track 목록 저장: {args.invalid_list_path}",
+            f"[mirdata] invalid track list saved: {args.invalid_list_path}",
             file=sys.stderr,
         )
         if args.strict_validate:
             return 1
         print(
-            "[mirdata] strict 모드가 아니므로 계속 진행합니다. "
-            "평가/학습 시 invalid track을 제외하세요.",
+            "[mirdata] Continuing because strict mode is off. "
+            "Exclude invalid tracks during evaluation/training.",
             file=sys.stderr,
         )
     else:
-        print(f"[mirdata] invalid track 목록 저장: {args.invalid_list_path}")
+        print(f"[mirdata] invalid track list saved: {args.invalid_list_path}")
 
     print("[mirdata] validate: OK")
     try:
         n = len(ds.track_ids)
-        print(f"[mirdata] track_ids: {n}개")
+        print(f"[mirdata] track_ids: {n}")
     except Exception:
         pass
     return 0

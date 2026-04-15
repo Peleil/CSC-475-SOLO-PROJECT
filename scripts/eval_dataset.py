@@ -1,12 +1,11 @@
 """
-GiantSteps / GTZAN-Genre 공통 데이터 로딩 (mirdata 불필요).
+Shared data loading utilities for GiantSteps / GTZAN-Genre.
 
-GTZAN 레이아웃 (data_home = 보통 dataset/mirdata_gtzan_genre):
-  - 오디오(기본): data_home/gtzan_genre/genres/{장르}/{track_id}.wav|.au|…
-    예: mirdata_gtzan_genre/gtzan_genre/genres/blues/blues.00042.wav
-    보조: gtzan_genre/{장르}/{track_id} (genres 없는 배치)도 탐색.
-  - 템포·비트 라벨: gtzan_tempo_beat-main/tempo/*.bpm, beats/*.beats (iter_gtzan_tasks 가 여기서만
-    BPM·beats 경로를 잡음. 오디오는 gtzan_tempo_beat-main 을 쓰지 않음.)
+GTZAN layout (data_home typically dataset/mirdata_gtzan_genre):
+  - Audio: data_home/gtzan_genre/genres/{genre}/{track_id}.wav|.au|...
+    Example: mirdata_gtzan_genre/gtzan_genre/genres/blues/blues.00042.wav
+    Fallback also checks gtzan_genre/{genre}/{track_id}.
+  - Tempo/beat labels: gtzan_tempo_beat-main/tempo/*.bpm and beats/*.beats.
 """
 from __future__ import annotations
 
@@ -17,7 +16,6 @@ from typing import Iterator, Optional
 
 import numpy as np
 
-# eval_common 와 동일 (순환/무거운 import 방지). GTZAN 원본(Marsyas)은 .au 가 흔함.
 AUDIO_EXTENSIONS_DEFAULT = [
     ".wav",
     ".au",
@@ -111,12 +109,10 @@ def gtzan_track_id_to_stem(tid: str) -> str:
 
 
 def find_gtzan_audio(data_home: Path, track_id: str) -> Optional[Path]:
-    """mirdata 오디오 루트(gtzan_genre) 아래에서 track_id 에 맞는 파일을 찾는다."""
+    """Find GTZAN audio file for a track_id under the mirdata audio root."""
     if "." not in track_id:
         return None
     genre, _num = track_id.split(".", 1)
-    # track_id 가 classical.00071 처럼 점이 두 개 이상이면 Path(.../classical.00071).with_suffix(".wav")
-    # 가 classical.wav 로 깨지므로, 반드시 f"{track_id}{ext}" 로 이어 붙인다.
     dirs = (
         data_home / "gtzan_genre" / "genres" / genre,
         data_home / "gtzan_genre" / genre,
@@ -130,7 +126,7 @@ def find_gtzan_audio(data_home: Path, track_id: str) -> Optional[Path]:
 
 
 def load_gtzan_beat_times(beats_path: Path) -> Optional[np.ndarray]:
-    """GTZAN .beats 파일: 첫 열 = 시간(초)."""
+    """Load GTZAN .beats file where the first column is time in seconds."""
     try:
         data = np.loadtxt(beats_path, ndmin=2)
         if data.size == 0:
@@ -148,9 +144,9 @@ def first_giantsteps_task_with_audio(
     excluded: set[str],
 ) -> Optional[tuple[str, Path, Path]]:
     """
-    `iter_giantsteps_tasks` 와 동일 규칙이나 **셔플 없이** 정렬된 *.bpm 순으로,
-    오디오 파일이 실제로 있는 **첫** 트랙.
-    반환: (stem, bpm_path, audio_path)
+    Same matching rule as `iter_giantsteps_tasks`, but without shuffle:
+    returns the first sorted *.bpm entry that has audio.
+    Returns: (stem, bpm_path, audio_path)
     """
     for bpm_file in sorted(annotation_dir.rglob("*.bpm")):
         stem = bpm_file.stem
@@ -168,8 +164,9 @@ def first_gtzan_task_with_audio(
     excluded: set[str],
 ) -> Optional[tuple[str, Path, Path, Optional[Path]]]:
     """
-    `iter_gtzan_tasks` 와 동일 규칙, 셔플 없이 tempo/*.bpm 정렬 순의 첫 오디오.
-    반환: (track_id, tempo_bpm_path, audio_path, beats_path or None)
+    Same matching rule as `iter_gtzan_tasks`, but without shuffle:
+    returns the first sorted tempo/*.bpm entry with audio.
+    Returns: (track_id, tempo_bpm_path, audio_path, beats_path or None)
     """
     tempo_dir = data_home / "gtzan_tempo_beat-main" / "tempo"
     beats_dir = data_home / "gtzan_tempo_beat-main" / "beats"
@@ -220,13 +217,13 @@ def iter_gtzan_tasks(
 ) -> Iterator[tuple[str, Path, Optional[Path], Optional[Path]]]:
     """
     (track_id, tempo_bpm_path, audio_path, beats_path or None)
-    tempo/bpm·beats 는 gtzan_tempo_beat-main 만 참조하고,
-    audio_path 는 find_gtzan_audio(data_home) → gtzan_genre/ 아래에서만 찾는다.
+    Tempo/bpm and beats are read from gtzan_tempo_beat-main.
+    Audio is resolved only via find_gtzan_audio(data_home) under gtzan_genre/.
     """
     tempo_dir = data_home / "gtzan_tempo_beat-main" / "tempo"
     beats_dir = data_home / "gtzan_tempo_beat-main" / "beats"
     if not tempo_dir.is_dir():
-        raise FileNotFoundError(f"GTZAN tempo 디렉터리 없음: {tempo_dir}")
+        raise FileNotFoundError(f"GTZAN tempo directory not found: {tempo_dir}")
     bpm_files = sorted(tempo_dir.glob("*.bpm"))
     rng = random.Random(seed)
     rng.shuffle(bpm_files)

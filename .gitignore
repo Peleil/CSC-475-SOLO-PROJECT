@@ -18,6 +18,9 @@ __pycache__/
 # Downloaded/generated datasets (ignore all under dataset)
 dataset/
 
+# Generated evaluation outputs
+results/
+
 # Large audio/data files anywhere
 *.mp3
 *.wav

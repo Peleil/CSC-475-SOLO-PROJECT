@@ -1,9 +1,12 @@
 """
-단일 곡 전역 BPM: 온셋 강도(OSS) → 광의 자기상관 → 고조파 강화 → 펄스 열 점수 → 가우시안 누적.
+Single-track global BPM: onset strength (OSS) -> generalized autocorrelation ->
+harmonic enhancement -> pulse-train scoring -> Gaussian accumulation.
 
-대응 텍스트: `papers/text version.txt` Section II (식 (1)–(14)),
-최종 BPM은 stem base: 식 (4) T = 60 * F_sO / L (누적기 피크 lag L).
-식 (15) SVM 옥타브 보정 가중치는 해당 텍스트에 없어 생략한다.
+Reference text: `papers/text version.txt`, Section II.
+Final BPM follows the stem-based formula T = 60 * F_sO / L
+(where L is the peak lag in the accumulator).
+SVM octave-correction weights are omitted because they are not provided
+in that text source.
 """
 from __future__ import annotations
 
@@ -22,7 +25,7 @@ _MIN_BPM = 50
 _MAX_BPM = 210
 _AC_COMPRESS_C = 0.5
 _GAUSSIAN_SIGMA_SAMPLES = 10.0
-_ACCUM_SIZE = 512  # 논문 예: max lag ≈ 414 + 여유
+_ACCUM_SIZE = 512
 
 
 def _fs_o(sample_rate: int, hop_audio: int) -> float:
@@ -32,7 +35,7 @@ def _fs_o(sample_rate: int, hop_audio: int) -> float:
 def _oss_spectrogram(
     y: np.ndarray, sr: int, frame: int, hop: int
 ) -> tuple[np.ndarray, np.ndarray]:
-    """식 (1) L_P, |X| — Hamming, DFT 크기. 반환: |X|(K,T), Lp(K,T)."""
+    """L_P, |X| with Hamming window and DFT magnitude."""
     y = np.asarray(y, dtype=np.float64)
     win = signal.windows.hamming(frame, sym=False)
     n = len(y)
@@ -54,7 +57,7 @@ def _oss_spectrogram(
 
 
 def _oss_flux(mag: np.ndarray, lp: np.ndarray) -> np.ndarray:
-    """식 (2): k=1..N-1, DC 제외; I_PF는 |X| 증가 구간만."""
+    """k=1..N-1 excluding DC; only positive |X| increments."""
     k_bins, n_frames = mag.shape
     if n_frames < 2:
         return np.array([], dtype=np.float64)
@@ -68,7 +71,7 @@ def _oss_flux(mag: np.ndarray, lp: np.ndarray) -> np.ndarray:
 
 
 def _lowpass_oss(oss: np.ndarray, fs_o: float) -> np.ndarray:
-    """14차 FIR, 7 Hz, Hamming 설계 (표기상 15 계수)."""
+    """14th-order FIR low-pass at 7 Hz (15 taps)."""
     if oss.size == 0:
         return oss
     taps = signal.firwin(
@@ -78,7 +81,8 @@ def _lowpass_oss(oss: np.ndarray, fs_o: float) -> np.ndarray:
 
 
 def _generalized_acf(oss_frame: np.ndarray, c: float) -> np.ndarray:
-    """식 (3): 길이 2배 zero-pad → DFT → |·|^c → IDFT; 실수부 lag."""
+    """2x zero-pad -> DFT -> |.|^c -> IDFT; use real lag axis."""
+    # 4.1 formula: A(tau) = Re{ F^{-1}(|Y|^c) }(tau)
     L = len(oss_frame)
     nfft = 2 * L
     pad = np.zeros(nfft, dtype=np.float64)
@@ -90,7 +94,8 @@ def _generalized_acf(oss_frame: np.ndarray, c: float) -> np.ndarray:
 
 
 def _enhance_acf(ac: np.ndarray) -> np.ndarray:
-    """식 (5) EAC(t)=A(t)+A(2t)+A(4t); 원본 A만 읽는다."""
+    """EAC(t)=A(t)+A(2t)+A(4t), sampling from original A."""
+    # 4.1 formula: E(tau) = A(tau) + A(2tau) + A(4tau)
     a = np.asarray(ac, dtype=np.float64)
     n = len(a)
     eac = np.zeros(n, dtype=np.float64)
@@ -123,7 +128,7 @@ def _top_peaks_eac(
 
 
 def _pulse_correlation_scores(oss_win: np.ndarray, period: int) -> tuple[float, float]:
-    """식 (8)–(10): φ=0..P-1, v∈{1,1.5,2}, 가중 1, 0.5, 0.5."""
+    """phi=0..P-1, v in {1,1.5,2}, weights 1, 0.5, 0.5."""
     if period <= 0:
         return 0.0, 0.0
     P = period
@@ -145,7 +150,7 @@ def _pulse_correlation_scores(oss_win: np.ndarray, period: int) -> tuple[float, 
 def _best_lag_for_frame(
     oss_win: np.ndarray, peak_candidates: np.ndarray
 ) -> int:
-    """식 (11)–(12)."""
+    """Per-frame best lag from pulse-score combination."""
     if peak_candidates.size == 0:
         return -1
     scx: list[float] = []
@@ -171,7 +176,7 @@ def _best_lag_for_frame(
 
 
 def _gaussian_kernel(mu: float, sigma: float, size: int) -> np.ndarray:
-    """식 (13) 이산 샘플 x=0..size-1."""
+    """Gaussian kernel on discrete samples x=0..size-1."""
     x = np.arange(size, dtype=np.float64)
     return (1.0 / (sigma * np.sqrt(2.0 * np.pi))) * np.exp(
         -((x - mu) ** 2) / (2.0 * sigma**2)
@@ -185,9 +190,7 @@ def estimate_autocorr_tempo(
     min_bpm: int = _MIN_BPM,
     max_bpm: int = _MAX_BPM,
 ) -> float | None:
-    """
-    논문 알고리즘 stem base BPM (식 (14) 누적 후 피크 lag, 식 (4)).
-    """
+    """Stem-based BPM via Gaussian-lag accumulation and lag-to-BPM conversion."""
     y = load_mono_resampled(audio_path, sample_rate)
     fs_o = _fs_o(sample_rate, _HOP_AUDIO)
 
@@ -226,5 +229,6 @@ def estimate_autocorr_tempo(
     L_star = int(np.argmax(accum))
     if L_star <= 0 or accum[L_star] <= 0.0:
         return None
+    # 4.1 formula: BPM = 60 * F_OSS / L*
     bpm = 60.0 * fs_o / float(L_star)
     return float(bpm) if bpm > 0 else None

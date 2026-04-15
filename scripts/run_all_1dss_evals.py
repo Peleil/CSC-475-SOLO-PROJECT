@@ -23,6 +23,29 @@ def parse_args() -> argparse.Namespace:
         help="Dataset option passed to run_tempo_eval.py",
     )
     p.add_argument(
+        "--sample-rate",
+        type=int,
+        default=None,
+        help="Optional: passed to run_tempo_eval and run_beat_eval (mono resample Hz).",
+    )
+    p.add_argument(
+        "--sample-size",
+        type=int,
+        default=None,
+        help="Optional: passed to both scripts (omit for full corpora).",
+    )
+    p.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="Optional: passed to both scripts.",
+    )
+    p.add_argument(
+        "--write-summary-json",
+        action="store_true",
+        help="Pass to run_beat_eval.py (beat_summary_<method>.json).",
+    )
+    p.add_argument(
         "--project-root",
         type=Path,
         default=Path(__file__).resolve().parents[1],
@@ -46,9 +69,22 @@ def main() -> None:
 
     tempo_prefix = [sys.executable, str(tempo)]
     beat_prefix = [sys.executable, str(beat)]
+    extra_tempo: list[str] = []
+    extra_beat: list[str] = []
+    if args.sample_rate is not None:
+        extra_tempo.extend(["--sample-rate", str(args.sample_rate)])
+        extra_beat.extend(["--sample-rate", str(args.sample_rate)])
+    if args.sample_size is not None:
+        extra_tempo.extend(["--sample-size", str(args.sample_size)])
+        extra_beat.extend(["--sample-size", str(args.sample_size)])
+    if args.seed != 0:
+        extra_tempo.extend(["--seed", str(args.seed)])
+        extra_beat.extend(["--seed", str(args.seed)])
+    if args.write_summary_json:
+        extra_beat.append("--write-summary-json")
     jobs = [
-        [*tempo_prefix, "--dataset", args.dataset, "--methods", "1dss"],
-        [*beat_prefix, "--methods", "1dss"],
+        [*tempo_prefix, "--dataset", args.dataset, "--methods", "1dss", *extra_tempo],
+        [*beat_prefix, "--methods", "1dss", *extra_beat],
     ]
     for i, cmd in enumerate(jobs, start=1):
         print(f"[run-all-1dss] step {i}/{len(jobs)}")

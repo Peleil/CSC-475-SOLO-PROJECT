@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-GiantSteps 오디오(mp3) 다운로드 — audio_dl.sh 와 동일한 URL·MD5 검증 흐름.
+Download GiantSteps audio (mp3) with the same URL/MD5 flow as audio_dl.sh.
 
 1) https://www.cp.jku.at/datasets/giantsteps/backup/<file>.mp3
-2) 실패 또는 MD5 불일치 시 http://geo-samples.beatport.com/lofi/<file>.mp3
+2) On failure or MD5 mismatch: http://geo-samples.beatport.com/lofi/<file>.mp3
 
-실행 디렉터리와 무관하게 --giantsteps-root 만 맞추면 된다.
+Works from any working directory if --giantsteps-root is set correctly.
 """
 from __future__ import annotations
 
@@ -98,16 +98,16 @@ def main() -> int:
         "--giantsteps-root",
         type=Path,
         default=Path("dataset/giantsteps-tempo-dataset-master"),
-        help="giantsteps-tempo-dataset-master 폴더",
+        help="Path to giantsteps-tempo-dataset-master",
     )
-    p.add_argument("--timeout", type=int, default=120, help="요청 타임아웃(초)")
-    p.add_argument("--workers", type=int, default=4, help="병렬 다운로드 스레드 수")
-    p.add_argument("--force", action="store_true", help="이미 있어도 MD5까지 다시 받기")
+    p.add_argument("--timeout", type=int, default=120, help="Request timeout in seconds")
+    p.add_argument("--workers", type=int, default=4, help="Number of parallel download workers")
+    p.add_argument("--force", action="store_true", help="Redownload and revalidate MD5 even if file exists")
     p.add_argument(
         "--limit",
         type=int,
         default=0,
-        help="테스트용: 앞에서 N개 .md5만 처리 (0이면 전체)",
+        help="Test mode: process first N .md5 files only (0 = all)",
     )
     args = p.parse_args()
 
@@ -115,12 +115,12 @@ def main() -> int:
     md5_dir = root / "md5"
     audio_dir = root / "audio"
     if not md5_dir.is_dir():
-        print(f"[error] md5 폴더 없음: {md5_dir}", file=sys.stderr)
+        print(f"[error] md5 folder not found: {md5_dir}", file=sys.stderr)
         return 1
 
     md5_files = sorted(md5_dir.glob("*.md5"))
     if not md5_files:
-        print(f"[error] .md5 파일 없음: {md5_dir}", file=sys.stderr)
+        print(f"[error] no .md5 files found: {md5_dir}", file=sys.stderr)
         return 1
     if args.limit and args.limit > 0:
         md5_files = md5_files[: args.limit]
@@ -162,11 +162,11 @@ def main() -> int:
                 )
 
     elapsed = time.perf_counter() - t0
-    print(f"[giantsteps] 완료 {elapsed:.1f}s : {stats}", flush=True)
+    print(f"[giantsteps] done {elapsed:.1f}s : {stats}", flush=True)
     if errors:
         log = root / "audio_download_errors.txt"
         log.write_text("\n".join(errors[:200]) + ("\n..." if len(errors) > 200 else ""), encoding="utf-8")
-        print(f"[giantsteps] 오류 목록(최대 200개): {log}", file=sys.stderr)
+        print(f"[giantsteps] error list (up to 200): {log}", file=sys.stderr)
         return 1
     return 0
 

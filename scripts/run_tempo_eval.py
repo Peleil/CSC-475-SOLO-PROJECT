@@ -24,10 +24,9 @@ from eval_common import (
     estimate_1dss_beats_and_tempo,
     estimate_autocorr_tempo,
     estimate_dsp_tempo,
-    estimate_madmom_beats,
+    estimate_madmom_tempo_dbn,
     mae_bpm,
     pct_error,
-    tempo_from_beat_times,
 )
 from eval_dataset import (
     iter_giantsteps_tasks,
@@ -194,12 +193,12 @@ def _predict_rows_for_track(dataset: str, tid: str, stem_or_tid: str, bpm_path: 
     if gt is None:
         for tag in methods_set:
             out[tag]["status"] = "skip_bad_gt"
-            out[tag]["note"] = "GT BPM 없음"
+            out[tag]["note"] = "missing_gt_bpm"
         return out
     if audio_path is None or not audio_path.is_file():
         for tag in methods_set:
             out[tag]["status"] = "missing_audio"
-            out[tag]["note"] = "오디오 없음"
+            out[tag]["note"] = "missing_audio"
         return out
 
     if "dsp" in methods_set:
@@ -216,8 +215,7 @@ def _predict_rows_for_track(dataset: str, tid: str, stem_or_tid: str, bpm_path: 
 
     if "madmom" in methods_set:
         r = out["madmom"]
-        b, st = estimate_madmom_beats(audio_path, sample_rate=eval_sr)
-        t = tempo_from_beat_times(b) if st == "ok" else None
+        t, st = estimate_madmom_tempo_dbn(audio_path, sample_rate=eval_sr)
         if st != "ok":
             r["status"] = "madmom_fail"
             r["note"] = st
@@ -231,7 +229,6 @@ def _predict_rows_for_track(dataset: str, tid: str, stem_or_tid: str, bpm_path: 
             r["status"] = "1dss_fail"
             r["note"] = st
         else:
-            # 기존 동작: local tempo 중앙값 우선, 없으면 IBI 기반
             _fill_tempo_metrics(r, t, gt)
 
     if "autocorr" in methods_set:
@@ -262,7 +259,7 @@ def main() -> None:
         ann = args.giantsteps_root / "annotations_v2" / "tempo"
         audio_root = args.giantsteps_root / "audio"
         if not ann.is_dir():
-            raise FileNotFoundError(f"GiantSteps annotation 없음: {ann}")
+            raise FileNotFoundError(f"GiantSteps annotation directory not found: {ann}")
         tasks = list(iter_giantsteps_tasks(ann, audio_root, excluded, args.sample_size, args.seed))
         for stem, bpm_path, audio_path in tqdm(tasks, desc="tempo[giantsteps]", disable=args.no_progress):
             tid = stem.split(".")[0]
