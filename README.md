@@ -16,7 +16,6 @@ Compared methods:
 
 - `scripts/`: dataset download, evaluation, plotting, and diagnostics
 - `results/`: per-track CSV outputs and aggregate JSON summaries
-- `figures/`: generated plots
 - `requirements-dsp-madmom.txt`: dependencies for DSP/madmom/autocorr environment
 - `requirements-1dss.txt`: dependencies for 1DSS environment
 
