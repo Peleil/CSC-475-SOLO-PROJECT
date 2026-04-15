@@ -21,21 +21,21 @@ Compared methods:
 
 ## Environment Setup
 
-This project is designed with two separate Python environments to avoid dependency conflicts.
+This project is designed with two separate Conda environments to avoid dependency conflicts.
 
 ### 1) DSP + madmom + autocorr environment
 
 ```bash
-python -m venv .venv-dsp-madmom
-.venv-dsp-madmom\Scripts\activate
+conda create -n csc475-dsp-madmom python=3.10 -y
+conda activate csc475-dsp-madmom
 pip install -r requirements-dsp-madmom.txt
 ```
 
 ### 2) 1DSS environment
 
 ```bash
-python -m venv .venv-1dss
-.venv-1dss\Scripts\activate
+conda create -n csc475-1dss python=3.10 -y
+conda activate csc475-1dss
 pip install -r requirements-1dss.txt
 ```
 
@@ -140,8 +140,7 @@ python scripts/run_all_1dss_evals.py --dataset both --write-summary-json
 ## Notes
 
 - In this codebase, the autocorr implementation follows the OSS/ACF/pulse pipeline but does **not** include the SVM octave-correction stage.
-- `1DSS` is integrated through `jump-reward-inference`; runtime is efficient, but accuracy is sensitive to preprocessing and backend alignment.
-- Some generated files under `results/` and `figures/` may be large or machine-specific and can be regenerated using the scripts above.
+- `1DSS` is integrated through `jump-reward-inference`; runtime is efficient, but accuracy is inappropriate.
 
 ## References
 
